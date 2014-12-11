@@ -19,42 +19,44 @@ package org.wso2.carbon.tenant.artifact.service;
 import org.apache.axis2.context.ConfigurationContext;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.core.ServerStartupHandler;
 import org.wso2.carbon.core.multitenancy.utils.TenantAxisUtils;
-import org.wso2.carbon.tenant.artifact.mgt.TenantArtifactManagerService;
-import org.wso2.carbon.utils.ConfigurationContextService;
+import org.wso2.carbon.tenant.artifact.internal.DataHolder;
+import org.wso2.carbon.user.api.Tenant;
+import org.wso2.carbon.user.api.UserStoreException;
 
-/**
- * @scr.reference name="config.context.service"
- * interface="org.wso2.carbon.utils.ConfigurationContextService"
- * cardinality="1..1" policy="dynamic"
- * bind="setConfigurationContextService"
- * unbind="unsetConfigurationContextService"
- */
 public class TenantManagementAdminService implements ServerStartupHandler {
 
     private static final Log LOGGER = LogFactory.getLog(TenantManagementAdminService.class);
-    private ConfigurationContextService configurationContextService;
+    DataHolder dataHolder = DataHolder.getInstance();
 
     @Override
     public void invoke() {
-        //Getting server configuration
-        LOGGER.info("========================Invoked : Tenant Artifact Management Service==================");
-        ConfigurationContext context = TenantAxisUtils.getTenantConfigurationContext("test.com",
-                                                                                     configurationContextService
-                                                                                             .getServerConfigContext());
-        int size = context.getAxisConfiguration().getServices().entrySet().size();
-        LOGGER.info("======context.getAxisConfiguration().getServices().entrySet().size() = " + size + " =====");
-        LOGGER.info("========================End: Tenant Artifact Management Service==================");
-
+        processTenantArtifacts();
     }
 
-    protected void setConfigurationContextService(ConfigurationContextService contextService) {
-        configurationContextService = contextService;
-    }
-
-    protected void unsetConfigurationContextService(ConfigurationContextService contextService) {
-        configurationContextService = null;
+    /**
+     * Processing tenant artifacts when server startup
+     */
+    private void processTenantArtifacts() {
+        LOGGER.info("== Invoked : Tenant Artifact Management Service ==");
+        try {
+            Tenant[] tenantCollection = dataHolder.getRealmService().getTenantManager().getAllTenants();
+            for (Tenant tenant : tenantCollection) {
+                PrivilegedCarbonContext.startTenantFlow();
+                String tenantDomain = tenant.getDomain();
+                ConfigurationContext context = TenantAxisUtils
+                        .getTenantConfigurationContext(tenantDomain, dataHolder.getConfigurationContextService().
+                                getServerConfigContext());
+                LOGGER.info("==" + tenantDomain + " deployed service count : " +
+                            context.getAxisConfiguration().getServices().entrySet().size() + " " +
+                            "==");
+                PrivilegedCarbonContext.destroyCurrentContext();
+            }
+        } catch (UserStoreException e) {
+            LOGGER.error("Error occurred when retrieving tenant Manager");
+        }
     }
 
 }

@@ -22,18 +22,30 @@ import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.component.ComponentContext;
 import org.wso2.carbon.core.ServerStartupHandler;
-import org.wso2.carbon.tenant.artifact.mgt.TenantArtifactManagerService;
 import org.wso2.carbon.tenant.artifact.service.TenantManagementAdminService;
+import org.wso2.carbon.user.core.service.RealmService;
+import org.wso2.carbon.utils.ConfigurationContextService;
 
 /**
  * @scr.component name="org.wso2.carbon.tenant.mgt"
  * immediate="true"
+ * @scr.reference name="config.context.service"
+ * interface="org.wso2.carbon.utils.ConfigurationContextService"
+ * cardinality="1..1" policy="dynamic"
+ * bind="setConfigurationContextService"
+ * unbind="unsetConfigurationContextService"
+ * @scr.reference name="user.realmservice.default"
+ * interface="org.wso2.carbon.user.core.service.RealmService"
+ * cardinality="1..1" policy="dynamic"
+ * bind="setRealmService"
+ * unbind="unsetRealmService"
  */
 public class TenantMgtServiceComponent {
     private ServiceRegistration registration;
     private static TenantManagementAdminService adminService;
     private static BundleContext bundleContext;
     private static final Log logger = LogFactory.getLog(TenantMgtServiceComponent.class);
+    private DataHolder dataHolder = DataHolder.getInstance();
 
     protected void activate(ComponentContext context) {
         logger.info("Tenant Management Service bundle is activated");
@@ -47,6 +59,22 @@ public class TenantMgtServiceComponent {
         registration.unregister();
         adminService = null;
         bundleContext = null;
+    }
+
+    protected void setConfigurationContextService(ConfigurationContextService contextService) {
+        dataHolder.setConfigurationContextService(contextService);
+    }
+
+    protected void unsetConfigurationContextService(ConfigurationContextService contextService) {
+        dataHolder.setConfigurationContextService(null);
+    }
+
+    protected void setRealmService(RealmService realmService) {
+        dataHolder.setRealmService(realmService);
+    }
+
+    protected void unsetRealmService(RealmService realmService) {
+        dataHolder.setRealmService(null);
     }
 
 }
