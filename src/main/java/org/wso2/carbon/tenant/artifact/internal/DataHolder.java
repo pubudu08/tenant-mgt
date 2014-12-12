@@ -28,7 +28,6 @@ public class DataHolder {
     }
 
     private DataHolder() {
-
     }
 
     public ConfigurationContextService getConfigurationContextService() {

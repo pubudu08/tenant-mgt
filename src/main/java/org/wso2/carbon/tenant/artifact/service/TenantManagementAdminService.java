@@ -22,9 +22,18 @@ import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.core.ServerStartupHandler;
 import org.wso2.carbon.core.multitenancy.utils.TenantAxisUtils;
+import org.wso2.carbon.tenant.artifact.config.TenantArtifactConfiguration;
+import org.wso2.carbon.tenant.artifact.config.TenantArtifactXMLProcessor;
 import org.wso2.carbon.tenant.artifact.internal.DataHolder;
 import org.wso2.carbon.user.api.Tenant;
 import org.wso2.carbon.user.api.UserStoreException;
+
+import javax.xml.stream.XMLStreamException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class TenantManagementAdminService implements ServerStartupHandler {
 
@@ -42,20 +51,35 @@ public class TenantManagementAdminService implements ServerStartupHandler {
     private void processTenantArtifacts() {
         LOGGER.info("== Invoked : Tenant Artifact Management Service ==");
         try {
-            Tenant[] tenantCollection = dataHolder.getRealmService().getTenantManager().getAllTenants();
-            for (Tenant tenant : tenantCollection) {
+            List<String> sortedTenantDomains = new ArrayList<String>();
+            List<Tenant> validTenantList =
+                    Arrays.asList(dataHolder.getRealmService().getTenantManager().getAllTenants());
+            TenantArtifactConfiguration tenantArtifactConfiguration =
+                    TenantArtifactXMLProcessor.getInstance().buildTenantInitConfigFromFile();
+            for (Tenant tenant : validTenantList) {
+                sortedTenantDomains.add(tenant.getDomain());
+            }
+            Collections.sort(sortedTenantDomains);
+            List<String> validTenantDomains = new ArrayList<String>(sortedTenantDomains);
+            validTenantDomains.removeAll(tenantArtifactConfiguration.getExcludeTenantList());
+            // Processing startup tenants
+            for (String tenant : validTenantDomains) {
                 PrivilegedCarbonContext.startTenantFlow();
-                String tenantDomain = tenant.getDomain();
                 ConfigurationContext context = TenantAxisUtils
-                        .getTenantConfigurationContext(tenantDomain, dataHolder.getConfigurationContextService().
-                                getServerConfigContext());
-                LOGGER.info("==" + tenantDomain + " deployed service count : " +
+                        .getTenantConfigurationContext(tenant,
+                                                       dataHolder.getConfigurationContextService().
+                                                               getServerConfigContext());
+                LOGGER.info("==" + tenant + " deployed service count : " +
                             context.getAxisConfiguration().getServices().entrySet().size() + " " +
                             "==");
                 PrivilegedCarbonContext.destroyCurrentContext();
             }
         } catch (UserStoreException e) {
             LOGGER.error("Error occurred when retrieving tenant Manager");
+        } catch (XMLStreamException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
