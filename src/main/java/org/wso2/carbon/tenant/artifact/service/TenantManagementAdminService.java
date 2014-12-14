@@ -42,45 +42,66 @@ public class TenantManagementAdminService implements ServerStartupHandler {
 
     @Override
     public void invoke() {
-        processTenantArtifacts();
+        try {
+            processTenantArtifacts();
+        } catch (IOException e) {
+            LOGGER.error("Tenant configuration not found,", e);
+        } catch (UserStoreException e) {
+            LOGGER.error("Error occurred when retrieving tenant Manager", e);
+        } catch (XMLStreamException e) {
+            LOGGER.error("Unable to process init-tenant.xml file", e);
+        }
     }
 
     /**
      * Processing tenant artifacts when server startup
      */
-    private void processTenantArtifacts() {
-        LOGGER.info("== Invoked : Tenant Artifact Management Service ==");
-        try {
-            List<String> sortedTenantDomains = new ArrayList<String>();
-            List<Tenant> validTenantList =
-                    Arrays.asList(dataHolder.getRealmService().getTenantManager().getAllTenants());
-            TenantArtifactConfiguration tenantArtifactConfiguration =
-                    TenantArtifactXMLProcessor.getInstance().buildTenantInitConfigFromFile();
-            for (Tenant tenant : validTenantList) {
-                sortedTenantDomains.add(tenant.getDomain());
-            }
-            Collections.sort(sortedTenantDomains);
-            List<String> validTenantDomains = new ArrayList<String>(sortedTenantDomains);
-            validTenantDomains.removeAll(tenantArtifactConfiguration.getExcludeTenantList());
-            // Processing startup tenants
-            for (String tenant : validTenantDomains) {
-                PrivilegedCarbonContext.startTenantFlow();
-                ConfigurationContext context = TenantAxisUtils
-                        .getTenantConfigurationContext(tenant,
-                                                       dataHolder.getConfigurationContextService().
-                                                               getServerConfigContext());
-                LOGGER.info("==" + tenant + " deployed service count : " +
-                            context.getAxisConfiguration().getServices().entrySet().size() + " " +
-                            "==");
-                PrivilegedCarbonContext.destroyCurrentContext();
-            }
-        } catch (UserStoreException e) {
-            LOGGER.error("Error occurred when retrieving tenant Manager");
-        } catch (XMLStreamException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+    private void processTenantArtifacts() throws IOException, UserStoreException, XMLStreamException {
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Tenant Artifact Management Service has been invoked");
         }
+        TenantArtifactConfiguration tenantArtifactConfiguration =
+                TenantArtifactXMLProcessor.getInstance().buildTenantInitConfigFromFile();
+        ArrayList<String> validTenantDomains = getPreExistsTenantDomains();
+        validTenantDomains.removeAll(tenantArtifactConfiguration.getExcludeTenantList());
+        invokeStartupTenantProcess(validTenantDomains);
+    }
+
+    /**
+     * Method to return existing tenant domains from UserRealm service
+     *
+     * @return sorted existing tenant domains
+     * @throws UserStoreException
+     */
+    private ArrayList<String> getPreExistsTenantDomains() throws UserStoreException {
+        List<String> sortedTenantDomains = new ArrayList<String>();
+        List<Tenant> validTenantList = Arrays.asList(dataHolder.getRealmService().getTenantManager().getAllTenants());
+        for (Tenant tenant : validTenantList) {
+            sortedTenantDomains.add(tenant.getDomain());
+        }
+        Collections.sort(sortedTenantDomains);
+        return new ArrayList<String>(sortedTenantDomains);
+    }
+
+    /**
+     * Method will load all the tenants which are defined in init-tenant.xml when the server startup.
+     *
+     * @param validTenantDomains ArrayList of valid tenant domains
+     */
+    private void invokeStartupTenantProcess(ArrayList<String> validTenantDomains) {
+        for (String tenantDomain : validTenantDomains) {
+            PrivilegedCarbonContext.startTenantFlow();
+            ConfigurationContext context = TenantAxisUtils
+                    .getTenantConfigurationContext(tenantDomain,
+                                                   dataHolder.getConfigurationContextService().
+                                                           getServerConfigContext());
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug(tenantDomain + " deployed service count : " +
+                            context.getAxisConfiguration().getServices().entrySet().size());
+            }
+            PrivilegedCarbonContext.destroyCurrentContext();
+        }
+
     }
 
 }

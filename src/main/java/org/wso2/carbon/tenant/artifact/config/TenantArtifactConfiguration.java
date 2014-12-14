@@ -20,7 +20,6 @@ package org.wso2.carbon.tenant.artifact.config;
 
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -31,7 +30,7 @@ import java.util.List;
 @XmlRootElement(name = "Tenants")
 public class TenantArtifactConfiguration {
     private List<String> includeTenantList;
-    private List<String> excludeTenantList=null;
+    private List<String> excludeTenantList = null;
     private String includeTenants;
     private String excludeTenants;
     private boolean isIncludeAWildcard;
@@ -43,7 +42,7 @@ public class TenantArtifactConfiguration {
     @XmlElement(name = "Include")
     public void setIncludeTenants(String include) {
         this.includeTenants = include.trim();
-        if(!includeTenants.contains("*")){
+        if (!includeTenants.contains("*")) {
             this.includeTenantList = Arrays.asList(splitter(includeTenants));
         }
     }
@@ -55,7 +54,7 @@ public class TenantArtifactConfiguration {
     @XmlElement(name = "Exclude")
     public void setExcludeTenants(String exclude) {
         this.excludeTenants = exclude;
-        if(!excludeTenants.contains("*")){
+        if (!excludeTenants.contains("*")) {
             excludeTenantList = Arrays.asList(splitter(excludeTenants));
             Collections.sort(excludeTenantList);
         }
@@ -70,11 +69,11 @@ public class TenantArtifactConfiguration {
     }
 
     private String[] splitter(String text) {
-        String[] parts = null;
+        String[] parts;
         if (text.contains(",")) {
             parts = text.split(",");
-        }else{
-            parts = new String[]{text};
+        } else {
+            parts = new String[] { text };
         }
         return parts;
     }
