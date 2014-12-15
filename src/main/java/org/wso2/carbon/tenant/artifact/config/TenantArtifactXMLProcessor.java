@@ -48,12 +48,14 @@ public class TenantArtifactXMLProcessor {
 
     /**
      * Responsible of retrieving init-tenant.xml file from configuration directory
+     * and populate TenantArtifactConfiguration class to hold configuration data
      *
      * @return omElement
      * @throws IOException
      * @throws XMLStreamException
      */
-    public TenantArtifactConfiguration buildTenantInitConfigFromFile() throws IOException, XMLStreamException {
+    public TenantArtifactConfiguration buildTenantInitConfigFromFile()
+            throws IOException, XMLStreamException, JAXBException {
         InputStream inputStream = null;
         TenantArtifactConfiguration tenantArtifactConfiguration = null;
         File tenantIntConfigFile = new File(CarbonUtils.getCarbonConfigDirPath(), INIT_TENANT_XML);
@@ -64,18 +66,12 @@ public class TenantArtifactXMLProcessor {
                           + INIT_TENANT_XML
                           + " or user does not have sufficient permission to access the resource.";
         if (inputStream == null) {
-            LOGGER.error(errorMsg);
             throw new FileNotFoundException(errorMsg);
         }
-        try {
-            JAXBContext jaxbContext = JAXBContext.newInstance(TenantArtifactConfiguration.class);
-            Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
-            tenantArtifactConfiguration =
-                    (TenantArtifactConfiguration) jaxbUnmarshaller.unmarshal(tenantIntConfigFile);
-        } catch (JAXBException e) {
-            LOGGER.error(" Error xml un");
-        }
+        JAXBContext jaxbContext = JAXBContext.newInstance(TenantArtifactConfiguration.class);
+        Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
+        tenantArtifactConfiguration =
+                (TenantArtifactConfiguration) jaxbUnmarshaller.unmarshal(tenantIntConfigFile);
         return tenantArtifactConfiguration;
     }
-
 }
