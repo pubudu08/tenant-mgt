@@ -20,8 +20,10 @@ package org.wso2.carbon.tenant.artifact.config;
 
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
@@ -30,33 +32,30 @@ import java.util.List;
 @XmlRootElement(name = "Tenants")
 public class TenantArtifactConfiguration {
     private List<String> includeTenantList;
-    private List<String> excludeTenantList = null;
-    private String includeTenants;
-    private String excludeTenants;
-    private boolean isIncludeAWildcard;
-
-    public String getIncludeTenants() {
-        return includeTenants;
-    }
+    private List<String> excludeTenantList;
 
     @XmlElement(name = "Include")
-    public void setIncludeTenants(String include) {
-        this.includeTenants = include.trim();
+    protected void setIncludeTenants(String include) {
+        String includeTenants = include.trim();
         if (!includeTenants.contains("*")) {
-            this.includeTenantList = Arrays.asList(splitter(includeTenants));
+            includeTenantList = new ArrayList<String>(splitter(include));
+            Collections.sort(includeTenantList);
+        } else {
+            includeTenantList = new ArrayList<String>();
+            includeTenantList.add(include);
         }
-    }
 
-    public String getExcludeTenants() {
-        return excludeTenants;
     }
 
     @XmlElement(name = "Exclude")
-    public void setExcludeTenants(String exclude) {
-        this.excludeTenants = exclude;
+    protected void setExcludeTenants(String exclude) {
+        String excludeTenants = exclude.trim();
         if (!excludeTenants.contains("*")) {
-            excludeTenantList = Arrays.asList(splitter(excludeTenants));
+            excludeTenantList = new ArrayList<String>(splitter(exclude));
             Collections.sort(excludeTenantList);
+        } else {
+            excludeTenantList = new ArrayList<String>();
+            excludeTenantList.add(exclude);
         }
     }
 
@@ -68,13 +67,16 @@ public class TenantArtifactConfiguration {
         return excludeTenantList;
     }
 
-    private String[] splitter(String text) {
+    private ArrayList<String> splitter(String text) {
         String[] parts;
+        ArrayList<String> temp;
         if (text.contains(",")) {
             parts = text.split(",");
         } else {
             parts = new String[] { text };
         }
-        return parts;
+        //The LinkedHashSet will contain each element only once, and in the same order as the List effectively, it's a one-liner:
+        temp = new ArrayList<String>(new LinkedHashSet<String>(Arrays.asList(parts)));
+        return temp;
     }
 }
