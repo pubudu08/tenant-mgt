@@ -39,7 +39,7 @@ import java.util.List;
 public class TenantManagementAdminService implements ServerStartupHandler {
 
     private static final Log LOGGER = LogFactory.getLog(TenantManagementAdminService.class);
-    DataHolder dataHolder = DataHolder.getInstance();
+    private DataHolder dataHolder = DataHolder.getInstance();
 
     @Override
     public void invoke() {
@@ -66,7 +66,9 @@ public class TenantManagementAdminService implements ServerStartupHandler {
         TenantArtifactConfiguration tenantArtifactConfiguration =
                 TenantArtifactXMLProcessor.getInstance().buildTenantInitConfigFromFile();
         ArrayList<String> validTenantDomains = getPreExistsTenantDomains();
-        validTenantDomains.removeAll(tenantArtifactConfiguration.getExcludeTenantList());
+        if (tenantArtifactConfiguration.getExcludeTenantList() != null) {
+            validTenantDomains.removeAll(tenantArtifactConfiguration.getExcludeTenantList());
+        }
         invokeStartupTenantProcess(validTenantDomains);
     }
 
@@ -112,7 +114,7 @@ public class TenantManagementAdminService implements ServerStartupHandler {
                                  context.getAxisConfiguration().getServices().entrySet().size());
                 }
             }
-            PrivilegedCarbonContext.destroyCurrentContext();
+            PrivilegedCarbonContext.endTenantFlow();
         }
 
     }
