@@ -28,6 +28,7 @@ import org.wso2.carbon.tenant.artifact.internal.DataHolder;
 import org.wso2.carbon.user.api.Tenant;
 import org.wso2.carbon.user.api.UserStoreException;
 
+import javax.xml.bind.JAXBException;
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,18 +46,20 @@ public class TenantManagementAdminService implements ServerStartupHandler {
         try {
             processTenantArtifacts();
         } catch (IOException e) {
-            LOGGER.error("Tenant configuration not found,", e);
+            LOGGER.error("Tenant configuration is not found,", e);
         } catch (UserStoreException e) {
-            LOGGER.error("Error occurred when retrieving tenant Manager", e);
+            LOGGER.error("Unexpected error occurred when retrieving tenant Manager", e);
         } catch (XMLStreamException e) {
             LOGGER.error("Unable to process init-tenant.xml file", e);
+        } catch (JAXBException e) {
+            LOGGER.error("Unexpected errors occur while unmarshalling", e);
         }
     }
 
     /**
      * Processing tenant artifacts when server startup
      */
-    private void processTenantArtifacts() throws IOException, UserStoreException, XMLStreamException {
+    private void processTenantArtifacts() throws IOException, UserStoreException, XMLStreamException, JAXBException {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Tenant Artifact Management Service has been invoked");
         }
@@ -75,9 +78,14 @@ public class TenantManagementAdminService implements ServerStartupHandler {
      */
     private ArrayList<String> getPreExistsTenantDomains() throws UserStoreException {
         List<String> sortedTenantDomains = new ArrayList<String>();
-        List<Tenant> validTenantList = Arrays.asList(dataHolder.getRealmService().getTenantManager().getAllTenants());
-        for (Tenant tenant : validTenantList) {
-            sortedTenantDomains.add(tenant.getDomain());
+        List<Tenant> validTenantList = null;
+        if (dataHolder.getRealmService() != null) {
+            validTenantList = Arrays.asList(dataHolder.getRealmService().getTenantManager().getAllTenants());
+        }
+        if (validTenantList != null) {
+            for (Tenant tenant : validTenantList) {
+                sortedTenantDomains.add(tenant.getDomain());
+            }
         }
         Collections.sort(sortedTenantDomains);
         return new ArrayList<String>(sortedTenantDomains);
@@ -97,7 +105,7 @@ public class TenantManagementAdminService implements ServerStartupHandler {
                                                            getServerConfigContext());
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(tenantDomain + " deployed service count : " +
-                            context.getAxisConfiguration().getServices().entrySet().size());
+                             context.getAxisConfiguration().getServices().entrySet().size());
             }
             PrivilegedCarbonContext.destroyCurrentContext();
         }
