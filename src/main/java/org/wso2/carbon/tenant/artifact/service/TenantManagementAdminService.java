@@ -99,13 +99,18 @@ public class TenantManagementAdminService implements ServerStartupHandler {
     private void invokeStartupTenantProcess(ArrayList<String> validTenantDomains) {
         for (String tenantDomain : validTenantDomains) {
             PrivilegedCarbonContext.startTenantFlow();
-            ConfigurationContext context = TenantAxisUtils
-                    .getTenantConfigurationContext(tenantDomain,
-                                                   dataHolder.getConfigurationContextService().
-                                                           getServerConfigContext());
+            ConfigurationContext context = null;
+            if (dataHolder.getConfigurationContextService().getServerConfigContext() != null) {
+                context = TenantAxisUtils
+                        .getTenantConfigurationContext(tenantDomain,
+                                                       dataHolder.getConfigurationContextService().
+                                                               getServerConfigContext());
+            }
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(tenantDomain + " deployed service count : " +
-                             context.getAxisConfiguration().getServices().entrySet().size());
+                if (context != null) {
+                    LOGGER.debug(tenantDomain + " deployed service count : " +
+                                 context.getAxisConfiguration().getServices().entrySet().size());
+                }
             }
             PrivilegedCarbonContext.destroyCurrentContext();
         }
