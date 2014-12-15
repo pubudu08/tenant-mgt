@@ -18,6 +18,9 @@ package org.wso2.carbon.tenant.artifact.internal;
 import org.wso2.carbon.user.core.service.RealmService;
 import org.wso2.carbon.utils.ConfigurationContextService;
 
+/**
+ * This singleton data holder contains all the data required by the Tenant.artifact OSGi bundle
+ */
 public class DataHolder {
     private ConfigurationContextService configurationContextService;
     private RealmService realmService;
