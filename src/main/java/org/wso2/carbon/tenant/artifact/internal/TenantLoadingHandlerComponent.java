@@ -21,8 +21,8 @@ import org.apache.commons.logging.LogFactory;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.component.ComponentContext;
+import org.wso2.carbon.base.api.ServerConfigurationService;
 import org.wso2.carbon.core.ServerStartupHandler;
-import org.wso2.carbon.tenant.artifact.service.TenantManagementAdminService;
 import org.wso2.carbon.user.core.service.RealmService;
 import org.wso2.carbon.utils.ConfigurationContextService;
 
@@ -39,23 +39,28 @@ import org.wso2.carbon.utils.ConfigurationContextService;
  * cardinality="1..1" policy="dynamic"
  * bind="setRealmService"
  * unbind="unsetRealmService"
+ * @scr.reference name="server.configuration"
+ * interface="org.wso2.carbon.base.api.ServerConfigurationService"
+ * cardinality="1..1" policy="dynamic"
+ * bind="setServerConfiguration"
+ * unbind="unsetServerConfiguration"
  */
-public class TenantMgtServiceComponent {
+public class TenantLoadingHandlerComponent {
     private ServiceRegistration registration;
-    private static TenantManagementAdminService adminService;
+    private static TenantEagerLoader adminService;
     private static BundleContext bundleContext;
-    private static final Log logger = LogFactory.getLog(TenantMgtServiceComponent.class);
+    private static final Log logger = LogFactory.getLog(TenantLoadingHandlerComponent.class);
     private DataHolder dataHolder = DataHolder.getInstance();
 
     protected void activate(ComponentContext context) {
-        logger.info("Tenant Management Service bundle is activated");
-        adminService = new TenantManagementAdminService();
+        logger.info(" Tenant Loading bundle is activated");
+        adminService = new TenantEagerLoader();
         bundleContext = context.getBundleContext();
         registration = bundleContext.registerService(ServerStartupHandler.class.getName(), adminService, null);
     }
 
     protected void deactivate(ComponentContext context) {
-        logger.info("Tenant Management Service bundle is deactivated");
+        logger.info("Tenant Loading bundle is deactivated");
         registration.unregister();
         adminService = null;
         bundleContext = null;
@@ -75,6 +80,14 @@ public class TenantMgtServiceComponent {
 
     protected void unsetRealmService(RealmService realmService) {
         dataHolder.setRealmService(null);
+    }
+
+    protected void setServerConfiguration(ServerConfigurationService serverConfigurationService) {
+        dataHolder.setServerConfigurationService(serverConfigurationService);
+    }
+
+    protected void unsetServerConfiguration(ServerConfigurationService serverConfigurationService) {
+        dataHolder.setConfigurationContextService(null);
     }
 
 }

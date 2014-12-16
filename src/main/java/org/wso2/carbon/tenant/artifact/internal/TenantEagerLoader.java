@@ -14,7 +14,7 @@
  *  limitations under the License.
  */
 
-package org.wso2.carbon.tenant.artifact.service;
+package org.wso2.carbon.tenant.artifact.internal;
 
 import org.apache.axis2.context.ConfigurationContext;
 import org.apache.commons.logging.Log;
@@ -24,7 +24,6 @@ import org.wso2.carbon.core.ServerStartupHandler;
 import org.wso2.carbon.core.multitenancy.utils.TenantAxisUtils;
 import org.wso2.carbon.tenant.artifact.config.TenantArtifactConfiguration;
 import org.wso2.carbon.tenant.artifact.config.TenantArtifactXMLProcessor;
-import org.wso2.carbon.tenant.artifact.internal.DataHolder;
 import org.wso2.carbon.user.api.Tenant;
 import org.wso2.carbon.user.api.UserStoreException;
 
@@ -33,39 +32,41 @@ import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
-public class TenantManagementAdminService implements ServerStartupHandler {
+/**
+ * This class responsible of processing/validating and load once server startup completed.
+ */
+public class TenantEagerLoader implements ServerStartupHandler {
 
-    private static final Log LOGGER = LogFactory.getLog(TenantManagementAdminService.class);
+    private static final Log logger = LogFactory.getLog(TenantEagerLoader.class);
     private DataHolder dataHolder = DataHolder.getInstance();
 
     @Override
     public void invoke() {
         try {
-            processTenantArtifacts();
+            loadTenants();
         } catch (IOException e) {
-            LOGGER.error("Tenant configuration is not found,", e);
+            logger.error("Tenant configuration is not found,", e);
         } catch (UserStoreException e) {
-            LOGGER.error("Unexpected error occurred when retrieving tenant Manager", e);
+            logger.error("Unexpected error occurred when retrieving tenant Manager", e);
         } catch (XMLStreamException e) {
-            LOGGER.error("Unable to process init-tenant.xml file", e);
+            logger.error("Unable to process init-tenant.xml file", e);
         } catch (JAXBException e) {
-            LOGGER.error("Unexpected errors occur while unmarshalling", e);
+            logger.error("Unexpected errors occur while unmarshalling", e);
         }
     }
 
     /**
      * Processing tenant artifacts when server startup
      */
-    private void processTenantArtifacts() throws IOException, UserStoreException, XMLStreamException, JAXBException {
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Tenant Artifact Management Service has been invoked");
+    private void loadTenants() throws IOException, UserStoreException, XMLStreamException, JAXBException {
+        if (logger.isDebugEnabled()) {
+            logger.debug("Tenant Artifact Management Service has been invoked");
         }
         TenantArtifactConfiguration tenantArtifactConfiguration =
                 TenantArtifactXMLProcessor.getInstance().buildTenantInitConfigFromFile();
-        ArrayList<String> validTenantDomains = getPreExistsTenantDomains();
+        List<String> validTenantDomains = getPreExistsTenantDomains();
         validTenantDomains = validateTenantLoadingProcess(validTenantDomains, tenantArtifactConfiguration);
         if (validTenantDomains != null) {
             invokeStartupTenantProcess(validTenantDomains);
@@ -78,7 +79,7 @@ public class TenantManagementAdminService implements ServerStartupHandler {
      * @return sorted existing tenant domains
      * @throws UserStoreException
      */
-    private ArrayList<String> getPreExistsTenantDomains() throws UserStoreException {
+    private List<String> getPreExistsTenantDomains() throws UserStoreException {
         List<String> sortedTenantDomains = new ArrayList<String>();
         List<Tenant> validTenantList = null;
         if (dataHolder.getRealmService() != null) {
@@ -89,8 +90,7 @@ public class TenantManagementAdminService implements ServerStartupHandler {
                 sortedTenantDomains.add(tenant.getDomain());
             }
         }
-        Collections.sort(sortedTenantDomains);
-        return new ArrayList<String>(sortedTenantDomains);
+        return sortedTenantDomains;
     }
 
     /**
@@ -98,7 +98,7 @@ public class TenantManagementAdminService implements ServerStartupHandler {
      *
      * @param validTenantDomains ArrayList of valid tenant domains
      */
-    private void invokeStartupTenantProcess(ArrayList<String> validTenantDomains) {
+    private void invokeStartupTenantProcess(List<String> validTenantDomains) {
         for (String tenantDomain : validTenantDomains) {
             PrivilegedCarbonContext.startTenantFlow();
             ConfigurationContext context = null;
@@ -108,9 +108,9 @@ public class TenantManagementAdminService implements ServerStartupHandler {
                                                        dataHolder.getConfigurationContextService().
                                                                getServerConfigContext());
             }
-            if (LOGGER.isDebugEnabled()) {
+            if (logger.isDebugEnabled()) {
                 if (context != null) {
-                    LOGGER.debug(tenantDomain + " deployed service count : " +
+                    logger.debug(tenantDomain + " deployed service count : " +
                                  context.getAxisConfiguration().getServices().entrySet().size());
                 }
             }
@@ -119,17 +119,22 @@ public class TenantManagementAdminService implements ServerStartupHandler {
 
     }
 
-    private ArrayList<String> validateTenantLoadingProcess(ArrayList<String> validTenantDomains,
+    /**
+     * Validate xml inputs
+     *
+     * @param validTenantDomains          existing tenant domains
+     * @param tenantArtifactConfiguration configuration object
+     * @return validated tenant domain list
+     */
+    private List<String> validateTenantLoadingProcess(List<String> validTenantDomains,
                                                            TenantArtifactConfiguration tenantArtifactConfiguration) {
         // where include = *  and exclude contains domain values
         if (tenantArtifactConfiguration.isIncludeAll() && tenantArtifactConfiguration.getExcludeTenantList() != null) {
             validTenantDomains.removeAll(tenantArtifactConfiguration.getExcludeTenantList());
             //where exclude = * and include contains values
-        } else if (!tenantArtifactConfiguration.isExcludeAll() && tenantArtifactConfiguration.getIncludeTenantList()
+        } else if (!tenantArtifactConfiguration.isIncludeAll() && tenantArtifactConfiguration.getIncludeTenantList()
                                                                   != null) {
             validTenantDomains.retainAll(tenantArtifactConfiguration.getIncludeTenantList());
-        } else {
-            validTenantDomains = null;
         }
         return validTenantDomains;
     }
