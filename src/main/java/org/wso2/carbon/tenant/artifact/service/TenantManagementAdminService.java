@@ -66,10 +66,10 @@ public class TenantManagementAdminService implements ServerStartupHandler {
         TenantArtifactConfiguration tenantArtifactConfiguration =
                 TenantArtifactXMLProcessor.getInstance().buildTenantInitConfigFromFile();
         ArrayList<String> validTenantDomains = getPreExistsTenantDomains();
-        if (tenantArtifactConfiguration.getExcludeTenantList() != null) {
-            validTenantDomains.removeAll(tenantArtifactConfiguration.getExcludeTenantList());
+        validTenantDomains = validateTenantLoadingProcess(validTenantDomains, tenantArtifactConfiguration);
+        if (validTenantDomains != null) {
+            invokeStartupTenantProcess(validTenantDomains);
         }
-        invokeStartupTenantProcess(validTenantDomains);
     }
 
     /**
@@ -117,6 +117,21 @@ public class TenantManagementAdminService implements ServerStartupHandler {
             PrivilegedCarbonContext.endTenantFlow();
         }
 
+    }
+
+    private ArrayList<String> validateTenantLoadingProcess(ArrayList<String> validTenantDomains,
+                                                           TenantArtifactConfiguration tenantArtifactConfiguration) {
+        // where include = *  and exclude contains domain values
+        if (tenantArtifactConfiguration.isIncludeAll() && tenantArtifactConfiguration.getExcludeTenantList() != null) {
+            validTenantDomains.removeAll(tenantArtifactConfiguration.getExcludeTenantList());
+            //where exclude = * and include contains values
+        } else if (!tenantArtifactConfiguration.isExcludeAll() && tenantArtifactConfiguration.getIncludeTenantList()
+                                                                  != null) {
+            validTenantDomains.retainAll(tenantArtifactConfiguration.getIncludeTenantList());
+        } else {
+            validTenantDomains = null;
+        }
+        return validTenantDomains;
     }
 
 }

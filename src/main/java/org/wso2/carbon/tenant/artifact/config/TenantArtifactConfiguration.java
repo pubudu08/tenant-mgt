@@ -19,9 +19,9 @@
 package org.wso2.carbon.tenant.artifact.config;
 
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -31,52 +31,52 @@ import java.util.List;
  */
 @XmlRootElement(name = "Tenants")
 public class TenantArtifactConfiguration {
-    private List<String> includeTenantList;
-    private List<String> excludeTenantList;
-
+    @XmlElementWrapper(name = "Includes", required = true)
     @XmlElement(name = "Include")
-    protected void setIncludeTenants(String include) {
-        String includeTenants = include.trim();
-        if (!includeTenants.contains("*")) {
-            includeTenantList = new ArrayList<String>(splitter(include));
-            Collections.sort(includeTenantList);
-        } else {
-            includeTenantList = new ArrayList<String>();
-            includeTenantList.add(include);
-        }
+    private LinkedHashSet<String> includeTenantList;
 
-    }
-
+    @XmlElementWrapper(name = "Excludes", required = true)
     @XmlElement(name = "Exclude")
-    protected void setExcludeTenants(String exclude) {
-        String excludeTenants = exclude.trim();
-        if (!excludeTenants.contains("*")) {
-            excludeTenantList = new ArrayList<String>(splitter(exclude));
-            Collections.sort(excludeTenantList);
-        } else {
-            excludeTenantList = new ArrayList<String>();
-            excludeTenantList.add(exclude);
-        }
-    }
+    private LinkedHashSet<String> excludeTenantList;
+    private boolean isIncludeAll;
+    private boolean isExcludeAll;
 
     public List<String> getIncludeTenantList() {
-        return includeTenantList;
+        if (includeTenantList == null) {
+            includeTenantList = new LinkedHashSet<String>();
+        }
+        List<String> arrayListIncludes = new ArrayList<String>(includeTenantList);
+        if (!includeTenantList.isEmpty()) {
+            Collections.sort(arrayListIncludes);
+        }
+        return arrayListIncludes;
     }
 
     public List<String> getExcludeTenantList() {
-        return excludeTenantList;
+        if (excludeTenantList == null) {
+            excludeTenantList = new LinkedHashSet<String>();
+        }
+        List<String> arrayListExcludes = new ArrayList<String>(excludeTenantList);
+        if (!excludeTenantList.isEmpty()) {
+            Collections.sort(arrayListExcludes);
+            if (excludeTenantList.contains("*")) {
+                isExcludeAll = true;
+            }
+        }
+        return arrayListExcludes;
     }
 
-    private ArrayList<String> splitter(String text) {
-        String[] parts;
-        ArrayList<String> temp;
-        if (text.contains(",")) {
-            parts = text.split(",");
-        } else {
-            parts = new String[] { text };
+    public boolean isIncludeAll() {
+        if (includeTenantList.contains("*")) {
+            isIncludeAll = true;
         }
-        //The LinkedHashSet will contain each element only once, and in the same order as the List effectively, it's a one-liner:
-        temp = new ArrayList<String>(new LinkedHashSet<String>(Arrays.asList(parts)));
-        return temp;
+        return isIncludeAll;
+    }
+
+    public boolean isExcludeAll() {
+        if (excludeTenantList.contains("*")) {
+            isExcludeAll = true;
+        }
+        return isExcludeAll;
     }
 }
