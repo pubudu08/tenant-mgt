@@ -15,6 +15,7 @@
  */
 package org.wso2.carbon.tenant.artifact.internal;
 
+import org.wso2.carbon.base.api.ServerConfigurationService;
 import org.wso2.carbon.user.core.service.RealmService;
 import org.wso2.carbon.utils.ConfigurationContextService;
 
@@ -24,6 +25,7 @@ import org.wso2.carbon.utils.ConfigurationContextService;
 public class DataHolder {
     private ConfigurationContextService configurationContextService;
     private RealmService realmService;
+    private ServerConfigurationService serverConfigurationService;
     private static DataHolder instance = new DataHolder();
 
     public static DataHolder getInstance() {
@@ -47,5 +49,13 @@ public class DataHolder {
 
     public void setRealmService(RealmService realm) {
         realmService = realm;
+    }
+
+    public ServerConfigurationService getServerConfigurationService() {
+        return serverConfigurationService;
+    }
+
+    public void setServerConfigurationService(ServerConfigurationService serverConfigurationService) {
+        this.serverConfigurationService = serverConfigurationService;
     }
 }
