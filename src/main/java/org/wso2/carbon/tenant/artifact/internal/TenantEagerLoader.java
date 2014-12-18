@@ -16,7 +16,6 @@
 
 package org.wso2.carbon.tenant.artifact.internal;
 
-import org.apache.axis2.context.ConfigurationContext;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
@@ -25,6 +24,7 @@ import org.wso2.carbon.core.multitenancy.utils.TenantAxisUtils;
 import org.wso2.carbon.tenant.artifact.config.TenantLoadingConfig;
 import org.wso2.carbon.user.api.Tenant;
 import org.wso2.carbon.user.api.UserStoreException;
+import org.wso2.carbon.user.core.service.RealmService;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,50 +37,43 @@ public class TenantEagerLoader implements ServerStartupHandler {
 
     private static final Log logger = LogFactory.getLog(TenantEagerLoader.class);
     private DataHolder dataHolder = DataHolder.getInstance();
+    private TenantLoadingConfig tenantLoadingConfig = new TenantLoadingConfig();
+
+    public TenantEagerLoader() {
+        tenantLoadingConfig.init();
+    }
 
     @Override
     public void invoke() {
+        List<String> validTenantDomains;
         try {
-            loadTenants();
+            validTenantDomains = getValidTenantDomains();
         } catch (UserStoreException e) {
-            logger.error("Unexpected error occurred when retrieving tenant Manager", e);
-        } catch (IllegalArgumentException e) {
-            logger.error("Only one policy should be enabled at the moment", e);
+            String msg = "Could not load valid tenant domains";
+            logger.error(msg, e);
+            throw new RuntimeException(msg, e);
+        }
+        if(!tenantLoadingConfig.isOptional()){
+            List<String> tenantsToBeEagerLoaded = getTenantsToBeEagerLoaded(validTenantDomains);
+            loadTenants(tenantsToBeEagerLoaded);
         }
     }
 
     /**
-     * Processing tenant artifacts when server startup
-     */
-    private void loadTenants() throws UserStoreException, IllegalArgumentException {
-        if (logger.isDebugEnabled()) {
-            logger.debug("Tenant Artifact Management Service has been invoked");
-        }
-        TenantLoadingConfig tenantLoadingConfig = TenantLoadingConfig.getInstance();
-        List<String> validTenantDomains = getTenantDomains();
-        tenantLoadingConfig.processEagerLoadingTenants();
-        validTenantDomains = validateTenantLoadingProcess(validTenantDomains, tenantLoadingConfig);
-        if (validTenantDomains != null) {
-            invokeStartupTenantProcess(validTenantDomains);
-        }
-    }
-
-    /**
-     * Method to return existing tenant domains from UserRealm service
+     * Method to return existing tenant domains in the system from UserRealm service
      *
      * @return sorted existing tenant domains
      * @throws UserStoreException
      */
-    private List<String> getTenantDomains() throws UserStoreException {
-        List<String> tenantDomains = new ArrayList<String>();
-        List<Tenant> validTenantList = null;
-        if (dataHolder.getRealmService() != null) {
-            validTenantList = Arrays.asList(dataHolder.getRealmService().getTenantManager().getAllTenants());
+    private List<String> getValidTenantDomains() throws UserStoreException {
+        RealmService realmService = dataHolder.getRealmService();
+        if (realmService == null) {
+            throw new IllegalStateException("UserRealmService has not been set");
         }
-        if (validTenantList != null) {
-            for (Tenant tenant : validTenantList) {
-                tenantDomains.add(tenant.getDomain());
-            }
+        List<String> tenantDomains = new ArrayList<String>();
+        List<Tenant> validTenantList = Arrays.asList(realmService.getTenantManager().getAllTenants());
+        for (Tenant tenant : validTenantList) {
+            tenantDomains.add(tenant.getDomain());
         }
         return tenantDomains;
     }
@@ -90,55 +83,68 @@ public class TenantEagerLoader implements ServerStartupHandler {
      *
      * @param validTenantDomains ArrayList of valid tenant domains
      */
-    private void invokeStartupTenantProcess(List<String> validTenantDomains) {
+    private void loadTenants(List<String> validTenantDomains) {
         for (String tenantDomain : validTenantDomains) {
-            PrivilegedCarbonContext.startTenantFlow();
-            ConfigurationContext context = null;
-            if (dataHolder.getConfigurationContextService().getServerConfigContext() != null) {
-                context = TenantAxisUtils
-                        .getTenantConfigurationContext(tenantDomain,
-                                                       dataHolder.getConfigurationContextService().
-                                                               getServerConfigContext());
-            }
-            if (logger.isDebugEnabled()) {
-                if (context != null) {
-                    logger.debug(tenantDomain + " deployed service count : " +
-                                 context.getAxisConfiguration().getServices().entrySet().size());
+            try {
+                PrivilegedCarbonContext.startTenantFlow();
+                if (dataHolder.getConfigurationContextService().getServerConfigContext() != null) {
+                    TenantAxisUtils.getTenantConfigurationContext(tenantDomain,
+                                                                  dataHolder.getConfigurationContextService()
+                                                                            .getServerConfigContext());
                 }
+            } finally {
+                PrivilegedCarbonContext.endTenantFlow();
             }
-            PrivilegedCarbonContext.endTenantFlow();
         }
     }
 
     /**
      * Validate xml inputs
      *
-     * @param validTenantDomains  existing tenant domains
-     * @param tenantLoadingConfig configuration object
+     * @param validTenantDomains existing tenant domains
      * @return validated tenant domain list
      */
-    private List<String> validateTenantLoadingProcess(List<String> validTenantDomains,
-                                                      TenantLoadingConfig tenantLoadingConfig)
-            throws IllegalArgumentException {
+    private List<String> getTenantsToBeEagerLoaded(List<String> validTenantDomains) {
+        List<String> tenantsToBeLoaded = new ArrayList<String>();
+        if (tenantLoadingConfig.isEagerLoadingEnabled()) {
+            List<String> includeTenantList =
+                    validateTenantDomains(tenantLoadingConfig.getIncludeTenantList(), validTenantDomains);
+            List<String> excludeTenantList =
+                    validateTenantDomains(tenantLoadingConfig.getExcludeTenantList(), validTenantDomains);
 
-        // where include = *  and exclude contains domain values
-        if (tenantLoadingConfig.getLazyLoadingIdleTime() == null &&
-            !tenantLoadingConfig.getEagerLoadingValue().isEmpty()) {
-            if (tenantLoadingConfig.getIncludeTenantList().contains("*") && tenantLoadingConfig
-                                                                                    .getExcludeTenantList() != null) {
-                validTenantDomains.removeAll(tenantLoadingConfig.getExcludeTenantList());
-            } else if (tenantLoadingConfig.getIncludeTenantList() != null) {
-                for (String domain : tenantLoadingConfig.getIncludeTenantList()) {
-                    if (!validTenantDomains.contains(domain)) {
-                        logger.warn("Tenant " + domain + " is not available in the system.");
-                    }
+            if (tenantLoadingConfig.includeAllTenants()) {
+                tenantsToBeLoaded.addAll(validTenantDomains);
+                // Now that we have included  all tenants, let's see whether any tenant have been excluded
+                if (!excludeTenantList.isEmpty()) {
+                    tenantsToBeLoaded.removeAll(excludeTenantList);
                 }
-                validTenantDomains.retainAll(tenantLoadingConfig.getIncludeTenantList());
+            } else { // include only tenants such as foo.com, bar.com
+                tenantsToBeLoaded.addAll(includeTenantList);
             }
-        } else {
-            throw new IllegalArgumentException("Only one policy should be enabled at the moment");
         }
-        return validTenantDomains;
+
+        // Nothing to do if lazy loading is enabled since the default lazy loading mechanism will kick in
+
+        return tenantsToBeLoaded;
     }
 
+    /**
+     * Check for non-existing tenant domains & print a warning is any non-existent tenants have been specified,
+     * and return a List of tenant domains which are valid
+     *
+     * @param tenantDomains      configuration bean
+     * @param validTenantDomains valid list
+     * @return The validated tenant domain List
+     */
+    private List<String> validateTenantDomains(List<String> tenantDomains, List<String> validTenantDomains) {
+        List<String> validatedTenantDomains = new ArrayList<String>();
+        for (String domain : tenantDomains) {
+            if (!validTenantDomains.contains(domain)) {
+                logger.warn("Tenant " + domain + " is not available in the system.");
+            } else {
+                validatedTenantDomains.add(domain);
+            }
+        }
+        return validatedTenantDomains;
+    }
 }

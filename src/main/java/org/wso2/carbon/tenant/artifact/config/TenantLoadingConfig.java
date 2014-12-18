@@ -18,6 +18,9 @@
 
 package org.wso2.carbon.tenant.artifact.config;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.wso2.carbon.base.api.ServerConfigurationService;
 import org.wso2.carbon.tenant.artifact.internal.DataHolder;
 
 import java.util.ArrayList;
@@ -25,50 +28,60 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 public class TenantLoadingConfig {
-    private String lazyLoadingIdleTime;
-    private String eagerLoadingValue;
+
+    private static final Log logger = LogFactory.getLog(TenantLoadingConfig.class);
+    public static final String TENANT_IDLE_TIME = "tenant.idle.time";
     private LinkedHashSet<String> includeTenantList = new LinkedHashSet<String>();
     private LinkedHashSet<String> excludeTenantList = new LinkedHashSet<String>();
-    private static TenantLoadingConfig instance = new TenantLoadingConfig();
+    private boolean includeAllTenants;
+    //Tenant element in carbon.xml is optional, so that if it is not specified,
+    // we fallback on the default tenant loading mechanism, which is lazy loading.
+    private boolean isOptional;
 
-    private TenantLoadingConfig() {
-    }
+    public void init() {
+        ServerConfigurationService serverConfigurationService =
+                DataHolder.getInstance().getServerConfigurationService();
+        if(serverConfigurationService == null){
+            throw new IllegalStateException("ServerConfigurationService is null");
+        }
+        String tenantIdleTime = serverConfigurationService.getFirstProperty("Tenant.LoadingPolicy.LazyLoading.IdleTime");
+        String eagerLoadingString = serverConfigurationService.getFirstProperty("Tenant.LoadingPolicy.EagerLoading.Include");
 
-    public String getLazyLoadingIdleTime() {
-        return lazyLoadingIdleTime;
-    }
-
-    private void setLazyLoadingIdleTime(String lazyLoadingIdleTime) {
-        this.lazyLoadingIdleTime = lazyLoadingIdleTime;
-    }
-
-    public String getEagerLoadingValue() {
-        return eagerLoadingValue;
-    }
-
-    private void setEagerLoadingValue(String eagerLoadingValue) {
-        this.eagerLoadingValue = eagerLoadingValue;
-    }
-
-    public void processEagerLoadingTenants() {
-        setLazyLoadingIdleTime(DataHolder.getInstance().getServerConfigurationService()
-                                         .getFirstProperty("Tenant.LoadingPolicy.LazyLoading.IdleTime"));
-        String eagerLoadingString = DataHolder.getInstance().getServerConfigurationService().
-                getFirstProperty("Tenant.LoadingPolicy.EagerLoading.Include");
-        setEagerLoadingValue(eagerLoadingString);
-        String[] tenantLoadingParam = eagerLoadingString.replaceAll("\\s", "").split(",");
-        for (String params : tenantLoadingParam) {
-            if (params.contains("!")) {
-                excludeTenantList.add(params.replace("!", ""));
-            } else {
-                includeTenantList.add(params);
+        if(tenantIdleTime != null) {
+            logger.info("Using tenant lazy loading policy...");
+            System.setProperty(TENANT_IDLE_TIME, tenantIdleTime);
+        } else {
+            // The eagerLoadingString could be something like; *,!wso2.com,!test.com
+            if (eagerLoadingString == null || eagerLoadingString.trim().isEmpty()) {
+                isOptional = true;
+                logger.info("Switching to default mode : Tenant lazy loading mechanism has been activated...");
+                return;
+                /*throw new IllegalArgumentException(
+                        "Tenant.LoadingPolicy.EagerLoading.Include element has not been specified in the carbon.xml");*/
+            }
+            isOptional = false;
+            logger.info("Using tenant eager loading policy...");
+            String[] tenants = eagerLoadingString.split(",");
+            for (String tenant : tenants) {
+                tenant = tenant.trim();
+                if (tenant.equals("*")) {
+                    includeAllTenants = true;
+                } else if (tenant.contains("!")) {
+                    if(tenant.contains("*")){
+                        throw new IllegalArgumentException(tenant + " is not a valid tenant domain");
+                    }
+                    excludeTenantList.add(tenant.replace("!", ""));
+                } else {
+                    includeTenantList.add(tenant);
+                }
             }
         }
     }
 
-    //*,!wso2.com,!test.com
-    public static TenantLoadingConfig getInstance() {
-        return instance;
+    public boolean isEagerLoadingEnabled(){
+        // If the excludeTenantList or includeTenantList is not empty, it means that we are using the eager loading
+        // policy
+        return includeAllTenants || !excludeTenantList.isEmpty() || !includeTenantList.isEmpty();
     }
 
     public List<String> getExcludeTenantList() {
@@ -77,5 +90,13 @@ public class TenantLoadingConfig {
 
     public List<String> getIncludeTenantList() {
         return new ArrayList<String>(includeTenantList);
+    }
+
+    public boolean includeAllTenants() {
+        return includeAllTenants;
+    }
+
+    public boolean isOptional() {
+        return isOptional;
     }
 }
