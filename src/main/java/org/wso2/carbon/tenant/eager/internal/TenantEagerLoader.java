@@ -14,14 +14,14 @@
  *  limitations under the License.
  */
 
-package org.wso2.carbon.tenant.artifact.internal;
+package org.wso2.carbon.tenant.eager.internal;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.core.ServerStartupHandler;
 import org.wso2.carbon.core.multitenancy.utils.TenantAxisUtils;
-import org.wso2.carbon.tenant.artifact.config.TenantLoadingConfig;
+import org.wso2.carbon.tenant.eager.config.TenantLoadingConfig;
 import org.wso2.carbon.user.api.Tenant;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.core.service.RealmService;

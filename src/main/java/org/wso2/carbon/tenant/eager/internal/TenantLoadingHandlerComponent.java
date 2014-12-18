@@ -14,7 +14,7 @@
  *  limitations under the License.
  */
 
-package org.wso2.carbon.tenant.artifact.internal;
+package org.wso2.carbon.tenant.eager.internal;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -27,7 +27,7 @@ import org.wso2.carbon.user.core.service.RealmService;
 import org.wso2.carbon.utils.ConfigurationContextService;
 
 /**
- * @scr.component name="org.wso2.carbon.tenant.artifact"
+ * @scr.component name="org.wso2.carbon.tenant.eager"
  * immediate="true"
  * @scr.reference name="config.context.service"
  * interface="org.wso2.carbon.utils.ConfigurationContextService"

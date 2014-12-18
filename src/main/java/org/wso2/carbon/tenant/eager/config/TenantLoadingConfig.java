@@ -16,12 +16,12 @@
  *
  */
 
-package org.wso2.carbon.tenant.artifact.config;
+package org.wso2.carbon.tenant.eager.config;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.base.api.ServerConfigurationService;
-import org.wso2.carbon.tenant.artifact.internal.DataHolder;
+import org.wso2.carbon.tenant.eager.internal.DataHolder;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;

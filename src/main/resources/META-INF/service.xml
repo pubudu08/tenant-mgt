@@ -16,7 +16,7 @@
 ! limitations under the License.
 !-->
 <serviceGroup>
-    <service name="VersionControlService" scope="transportsession">
+    <service name="TenantEagerLoadingService" scope="transportsession">
         <transports>
             <transport>https</transport>
         </transports>
